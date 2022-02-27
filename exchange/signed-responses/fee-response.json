@@ -1,0 +1,17 @@
+[
+  {
+    "operation": "exchange-set-wire-fee-0",
+    "arguments": {
+      "wire_method": "x-taler-bank",
+      "start_time": {
+        "t_ms": 1640995200000
+      },
+      "end_time": {
+        "t_ms": 1672531200000
+      },
+      "wire_fee": "CHF:0",
+      "closing_fee": "CHF:0",
+      "master_sig": "RA6XNAZ1GPZQDGKAKPKZS69P888BZGKG5C7EFKM1N89CCYKKSNV5TMJFXJDDAQ1BATXBBNJP6F6DP2RGMHDMPFD272T8397RDBYV030"
+    }
+  }
+]

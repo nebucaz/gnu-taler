@@ -1,0 +1,13 @@
+[
+  {
+    "operation": "exchange-enable-wire-0",
+    "arguments": {
+      "payto_uri": "payto://x-taler-bank/bank:5882/Exchange",
+      "validity_start": {
+        "t_ms": 1643883617000
+      },
+      "master_sig_add": "KFYW8VKGK4W2A95TD5SXN8610YS404FZMF8Q54DRMCXV66W2V0E2VPK1J3R0GPGM95YS92NNZ2CD6GFT502RTSMCY7HCDX29ZE18E3G",
+      "master_sig_wire": "R7SJFS8YGCH0XF303KZCKD08NYG3HXGVR5P08Y4TMJS46KCQQSCGFG6R6AR4RJHM2XEK3S9HBHS4Y6QPGPGVS8B3V7HBNS12S51B00R"
+    }
+  }
+]

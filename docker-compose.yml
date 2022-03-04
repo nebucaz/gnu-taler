@@ -7,7 +7,6 @@ networks:
   merchantnet:
 
 services:
-
   exchange:
     container_name: exchange
     build: ./exchange
@@ -91,6 +90,23 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "exchange:172.17.0.1"
+    tty: true
+    stdin_open: true
+
+  fuzzer:
+    container_name: fuzzer 
+    build: ./fuzzer
+    image: "taler/fuzzer:latest"
+    networks:
+      - inet
+      - merchantnet
+        #- exchangenet
+        #    extra_hosts:
+        #- "host.docker.internal:host-gateway"
+        #- "exchange:172.17.0.1"
+    volumes:
+     - ./fuzzer/api:/home/fuzzy/api
+     - ./fuzzer/results:/home/fuzzy/results
     tty: true
     stdin_open: true
 

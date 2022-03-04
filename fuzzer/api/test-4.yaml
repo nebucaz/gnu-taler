@@ -1,0 +1,375 @@
+openapi: '3.0.0'
+info:
+  title: GNU Taler Exchange
+  description: "GNUT Taler Exhange API"
+  version: '0.8'
+servers:
+  - url: http://exchange.taler.local:5890
+    description: Docker test environment.
+paths:
+  /terms:
+    get:
+      summary: "Get the terms of service of the exchange."
+      description: |
+        "The exchange will consider the “Accept” and “Accept-Language” and “Accept-Encoding” headers when generating a response. Specifically, it will try to find a response with an acceptable mime-type, then pick the version in the most preferred language of the user, and finally apply compression if that is allowed by the client and deemed beneficial. The exchange will set an “Etag”, and subsequent requests of the same client should provide the tag in an “If-None-Match” header to detect if the terms of service have changed. If not, a “204 Not Modified” response will be returned. If the “Etag” is missing, the client should not cache the response and instead prompt the user again at the next opportunity. This is usually only the case if the terms of service were not configured correctly."
+      responses:
+        "200":
+          description: "OK"
+          content:
+            text/plain:
+              schema:
+                type: string
+  /privacy:
+    get:
+      summary: "Get the privacy policy of the exchange"
+      description: |
+        "The exchange will consider the “Accept” and “Accept-Language” and “Accept-Encoding” headers when generating a response. Specifically, it will try to find a response with an acceptable mime-type, then pick the version in the most preferred language of the user, and finally apply compression if that is allowed by the client and deemed beneficial.\n \    The exchange will set an “Etag”, and subsequent requests of the same client should provide the tag in an “If-None-Match” header to detect if the privacy policy has changed. If not, a “204 Not Modified” response will be returned.\n \ If the “Etag” is missing, the client should not cache the response and instead prompt the user again at the next opportunity. This is usually only the case if the privacy policy was not configured correctly."
+      responses:
+        "200":
+          description: "OK"
+          content:
+            text/plain:
+              schema:
+                type: string
+  /seed:
+    get:
+      summary: ""
+      description: |
+        "Return an entropy seed. The exchange will return a high-entropy value that will differ for every call. The response is NOT in JSON, but simply high-entropy binary data in the HTTP body. This API should be used by wallets to guard themselves against running on low-entropy (bad PRNG) hardware. Naturally, the entropy returned MUST be mixed with locally generated entropy."
+      responses:
+        "200":
+          description: "The response sends 32 byte binry data, without content-type"
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: byte
+  /wire:
+    get:
+      summary: |
+        "Returns a list of payment methods supported by the exchange. The idea is that wallets may use this information to instruct users on how to perform wire transfers to top up their wallets."
+      description: ""
+      responses:
+        "200":
+          description: "Everything went fine."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WireResponse"
+  /management/keys:
+    get:
+      summary: "Get a list of future public keys to be used by the exchange. Only to be used by the exchange’s offline key management team. Not useful for anyone else (but also not secret, so access is public)."
+      description: ""
+      responses:
+        "200":
+          description: |
+            "The exchange responds with a FutureKeysResponse object. This request should virtually always be successful."
+          content: 
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FutureKeysResponse"
+    post:
+      summary: | 
+        "Provide master signatures for future public keys to be used by the exchange. Only to be used by the exchange's offline key management team. Not useful for anyone else."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MasterSignatures"
+      responses:
+        "204":
+          description: "The request was successfully processed."
+        "403":
+          description: "A provided signature is invalid."
+        "404": 
+          description: "One of the keys for which a signature was provided is unknown to the exchange."
+  /management/denominations/{h_denom_pub}/revoke:
+    post:
+      summary: |
+        "Revoke denomination key, preventing further use by the exchange. Only to be used by the exchange’s offline key management team. Not useful for anyone else."
+      parameters:
+        - name: h_denom_pub
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/h_denom_pub"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DenomRevocationSignature"
+      responses:
+        "204":
+          description: "OK"
+        # 404
+        # 414
+        "403":
+          description: "The provided signature is invalid."
+  /management/signkeys/{exchange_pub}/revoke:
+    post:
+      summary: |
+        ""
+      parameters:
+      - name: exchange_pub
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/exchange_pub"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignkeyRevocationSignature"
+      responses:
+        "204":
+          description: "OK"
+        "403":
+          description: "The provided signature is invalid."
+components:
+  schemas:
+    WireResponse:
+      type: object
+      properties:
+        master_public_key: 
+          type: string
+          description: "EddsaPublicKey"
+        accounts: 
+          type: array
+          items:
+            $ref: "#/components/schemas/WireAccount"
+          description: |
+            "Array of wire accounts operated by the exchange for incoming wire transfers."
+        fees:
+          type: object
+          description: |
+            "Object mapping names of wire methods (i.e. \"iban\" or \"x-taler-bank\") to wire fees. List of exchanges that this exchange is partnering with to enable wallet-to-wallet transfers."
+        wads:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExchangePartner"
+    ExchangePartner:
+      type: object
+      properties:
+         master_public_key: 
+          $ref: "#/components/schemas/EddsaPublicKey"
+         accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WireAccount"
+    WireAccount:
+      type: object
+      properties:
+        payto_uri:
+          type: string
+        master_sig:
+          $ref: "#/components/schemas/EddsaSignature"
+    h_denom_pub:
+      $ref: "#/components/schemas/HashCode"
+    EddsaPublicKey:
+      type: string
+      maxLength: 64
+    EddsaSignature:
+      type: string
+      maxLength: 64
+    RsaPublicKey:
+      type: string
+      description: "RSA public key converted to Crockford Base32."
+    Forever:
+      type: string
+      enum: ['forever']
+    MicroSeconds:
+        type: integer
+    Duration:
+      type: object
+      properties:
+        d_us:
+          oneOf:
+            - $ref: "#/components/schemas/MicroSeconds"
+            - $ref: "#/components/schemas/Forever"
+    RelativeTime:
+        $ref: "#/components/schemas/Duration"
+        Never:
+        type: string
+        enum: ['never']
+    Never:
+      type: string
+      enum: ['never']
+    Timestamp:
+        type: object
+        properties:
+          t_s:
+            oneOf:
+              - $ref: "#/components/schemas/MicroSeconds"
+              - $ref: "#/components/schemas/Never"
+    Amount:
+      type: string
+      description: |
+        "Amounts of currency are serialized as a string of the format <Currency>:<DecimalAmount>. Taler treats monetary amounts as fixed-precision numbers, with 8 decimal places. Unlike floating point numbers, this allows accurate representation of monetary amounts. The following constrains apply for a valid amount: The <Currency> part must be at most 11 characters long and may only consist of ASCII letters (a-zA-Z). The integer part of <DecimalAmount> may be at most 2^52. The fractional part of <DecimalAmount> may contain at most 8 decimal digits."
+    Denom:
+      type: object
+      properties:
+        value:
+          $ref: "#/components/schemas/Amount"
+        stamp_start:
+          $ref: "#/components/schemas/Timestamp"
+        stamp_expire_withdraw:
+          $ref: "#/components/schemas/Timestamp"
+        stamp_expire_legal:
+          $ref: "#/components/schemas/Timestamp"
+        denom_pub:
+          type: array
+          items:
+            $ref: "#/components/schemas/DenominationKey"
+        fee_withdraw:
+          $ref: "#/components/schemas/Amount"
+        fee_deposit:
+          $ref: "#/components/schemas/Amount"
+        fee_refresh:
+          $ref: "#/components/schemas/Amount"
+        fee_refund:
+          $ref: "#/components/schemas/Amount"
+        master_sig:
+            $ref: "#/components/schemas/EddsaSignature"
+    DenominationKey:
+        oneOf:
+          - $ref: "#/components/schemas/RsaDenominationKey"
+          - $ref: "#/components/schemas/CSDenominationKey"
+    RsaDenominationKey:
+      type: string
+    CSDenominationKey:
+      type: string
+    Recoup:
+      type: object
+      properties:
+        h_denom_pub:
+          $ref: "#/components/schemas/HashCode"
+      description: |
+        "Hash of the public key of the denomination that is being revoked under emergency protocol (see /recoup). We do not include any signature here, as the primary use-case for this emergency involves the exchange having lost its signing keys, so such a signature here would be pretty worthless.  However, the exchange will not honor /recoup requests unless they are for denomination keys listed here."
+    HashCode:
+      type: string
+      maxLength: 64
+      description: "64-byte hash code."
+    P2PFee:
+      type: object
+      properties:
+        start_date:
+            $ref: "#/components/schemas/Timestamp"
+        end_date:
+          $ref: "#/components/schemas/Timestamp"
+        kyc_fee: 
+          $ref: "#/components/schemas/Amount"
+        account_history_fee:
+          $ref: "#/components/schemas/Amount"
+        account_annual_fee:
+          $ref: "#/components/schemas/Amount"
+        legal_history_retention: 
+          $ref: "#/components/schemas/RelativeTime"
+        account_kyc_timeout:
+          $ref: "#/components/schemas/RelativeTime"
+        purse_fee: 
+          $ref: "#/components/schemas/Amount"
+        purse_account_limit:
+          type: integer
+          description: |
+            "Non-negative number of concurrent purses that any account holder is allowed to create without having to pay the purse_fee."
+        purse_timeout:
+          $ref: "#/components/schemas/RelativeTime"
+        master_sig:
+          $ref: "#/components/schemas/EddsaSignature"
+    FutureKeysResponse:
+      type: object
+      properties:
+        future_denoms:
+          type: array
+          items:
+            $ref: "#/components/schemas/FutureDenom"
+        future_signkeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignKey"
+        master_pub:
+          $ref: "#/components/schemas/EddsaPublicKey"
+        denom_secmod_public_key:
+          $ref: "#/components/schemas/EddsaPublicKey"
+        signkey_secmod_public_key:
+          $ref: "#/components/schemas/EddsaPublicKey"
+    FutureDenom:
+      type: object
+      properties:
+        section_name:
+          type: string
+        value:
+          $ref: "#/components/schemas/Amount"
+        stamp_start:
+          $ref: "#/components/schemas/Timestamp"
+        stamp_expire_withdraw:
+          $ref: "#/components/schemas/Timestamp"
+        stamp_expire_deposit:
+          $ref: "#/components/schemas/Timestamp"
+        stamp_expire_legal:
+          $ref: "#/components/schemas/Timestamp"
+        denom_pub:
+          $ref: "#/components/schemas/RsaPublicKey"
+        fee_withdraw:
+          $ref: "#/components/schemas/Amount"
+        fee_deposit:
+          $ref: "#/components/schemas/Amount"
+        fee_refresh:
+          $ref: "#/components/schemas/Amount"
+        fee_refund:
+          $ref: "#/components/schemas/Amount"
+        denom_secmod_sig:
+          $ref: "#/components/schemas/EddsaSignature"
+    SignKey:
+      type: object
+      properties:
+        key:
+          $ref: "#/components/schemas/EddsaPublicKey"
+        stamp_start:
+          $ref: "#/components/schemas/Timestamp"
+        stamp_expire:
+          $ref: "#/components/schemas/Timestamp"
+        stamp_end:
+          $ref: "#/components/schemas/Timestamp"
+        signkey_secmod_sig:
+          $ref: "#/components/schemas/EddsaSignature"
+    MasterSignatures:
+      type: object
+      properties:
+        denom_sigs:
+          type: array
+          items:
+            $ref: "#/components/schemas/DenomSignature"
+        signkey_sigs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignKeySignature"
+    DenomSignature:
+      type: object
+      properties:
+        h_denom_pub: 
+          $ref: "#/components/schemas/HashCode"
+        master_sig: 
+          $ref: "#/components/schemas/EddsaSignature"
+    SignKeySignature:
+      type: object
+      properties:
+        key: 
+          $ref: "#/components/schemas/EddsaPublicKey"
+        master_sig: 
+          $ref: "#/components/schemas/EddsaSignature"
+    DenomRevocationSignature:
+      type: object
+      properties:
+        master_sig:
+          $ref: "#/components/schemas/EddsaSignature"
+    exchange_pub:
+      $ref: "#/components/schemas/EddsaPublicKey"
+    SignkeyRevocationSignature:
+      type: object
+      properties:
+         master_sig:
+           $ref: "#/components/schemas/EddsaSignature"

@@ -64,9 +64,9 @@ wp option update woocommerce_gnutaler_settings --format=json '{"enabled":"yes","
 
 # create category
 cat_create_msg=$(wp wc product_cat create --name="Voucher" --user=shop_admin)
-[[ $cat_create_msg =~ ^.*(\d+)$ ]] # pattern must be unquoted
-
-cat_id=$BASH_REMATCH[1]
+cat_id="${cat_create_msg//[!0-9]}"
+#[[ $cat_create_msg =~ ^.*(\d+)\.$ ]] # pattern must be unquoted
+#cat_id=$BASH_REMATCH[1]
 
 # create voucher products
 wp wc product create --name="Netflix" --sku="NTFLX01" --regular_price=20.00 --virtual=1 --categories="{[${cat_id}]}" --user=shop_admin
